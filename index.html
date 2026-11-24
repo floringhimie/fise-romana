@@ -42,7 +42,6 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 header{text-align:center;padding:28px 16px 8px}
 h1{font-size:clamp(28px,6vw,44px);font-weight:700;margin:0;letter-spacing:-.5px}
 .intro{color:var(--soft);margin:6px auto 0;max-width:34em}
-.total{display:inline-block;margin-top:10px;padding:4px 14px;border-radius:999px;background:var(--paper);border:2px solid var(--sun);font-weight:600}
 
 nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--page);padding:10px 12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 nav a{display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--ink);background:var(--paper);border:2px solid var(--box-line);border-radius:999px;padding:6px 14px;font-weight:500;font-size:16px}
@@ -101,7 +100,6 @@ input.ans.bad{border:3px solid var(--oops);background:var(--oops-bg);animation:w
 .feedback{min-height:1.6em;margin:16px 0 0;font-weight:600;font-size:19px}
 .feedback.win{color:var(--leaf)}
 .feedback.try{color:var(--oops)}
-.actions{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
 
 
 /* Comune: plăcuțe cu litere */
@@ -165,6 +163,22 @@ button.chip.in{background:var(--brick);color:var(--brick-ink);border-color:var(-
 
 @media (prefers-reduced-motion:reduce){.bee,.gpic,.line.bad{transition:none!important;animation:none!important}}
 
+/* Contorul de stele: mare, auriu, mereu la vedere */
+.total{position:relative;display:inline-flex;align-items:center;gap:10px;margin-top:14px;padding:8px 22px 8px 14px;border-radius:999px;
+  background:var(--sun);color:#1d3577;border:3px solid var(--brick-line);box-shadow:0 4px 0 var(--brick-line);font-weight:600;font-size:20px}
+.total .t-star{font-size:40px;line-height:1}
+.total .t-num{font-size:42px;line-height:1;font-weight:700}
+.nav-total{position:relative;display:none;align-items:center;gap:4px;padding:3px 12px;border-radius:999px;
+  background:var(--sun);color:#1d3577;border:2px solid var(--brick-line);font-weight:700;font-size:21px;line-height:1.4}
+nav.compact .nav-total{display:inline-flex}
+.plus{position:absolute;top:-10px;right:-8px;padding:0 7px;border-radius:999px;background:#2f9e64;color:#fff;font-size:14px;font-weight:700;opacity:0;pointer-events:none}
+.bump{animation:bump .6s}
+.bump .plus{animation:plusUp 1.1s ease-out}
+@keyframes bump{30%{transform:scale(1.2)}60%{transform:scale(.95)}100%{transform:none}}
+@keyframes plusUp{0%{opacity:0;transform:translateY(6px)}20%{opacity:1}100%{opacity:0;transform:translateY(-24px)}}
+@media (max-width:420px){nav.compact{gap:4px;padding:6px 8px}nav.compact a{padding:6px 8px}.nav-total{font-size:19px;padding:3px 9px}}
+@media (prefers-reduced-motion:reduce){.bump,.bump .plus{animation:none}}
+
 footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
 
 @media (max-width:560px){
@@ -191,7 +205,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
 @page{size:A4;margin:12mm}
 @media print{
   :root{--paper:#fff;--page:#fff;--ink:#1d3577;--soft:#4a5a80;--box:#fff;--box-line:#7d93bd;--grid:#e3ebf5;color-scheme:light}
-  header,nav,.tools,.actions,.feedback,footer,.track,.diacr,.train,.sent-live{display:none!important}
+  header,nav,.tools,.feedback,footer,.track,.diacr,.train,.sent-live{display:none!important}
   body{background:#fff}
   main{max-width:none;padding:0}
   .print-only{display:flex}
@@ -203,7 +217,6 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   .sheet:last-of-type{break-after:auto}
   input.ans,input.ans.ok,input.ans.bad{color:transparent!important;border:2px dashed #7d93bd!important;background:#fff!important;animation:none}
   .gpic.found{visibility:hidden}
-  body.print-one .sheet:not(.to-print){display:none}
   .words{gap:30px 24px}
   .syl{gap:34px 24px}
   .mix{gap:36px 24px}
@@ -216,8 +229,8 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
 <body>
 <header>
   <h1>✏️ Aventuri cu litere</h1>
-  <p class="intro">Completează căsuțele: răspunsurile se verifică singure, pe loc. Apasă „Fișă nouă” când vrei alte cuvinte.</p>
-  <div class="total" id="total">⭐ 0 stele strânse</div>
+  <p class="intro">Completează căsuțele: răspunsurile se verifică singure, pe loc. Apasă „Toate fișele noi” când vrei alte cuvinte.</p>
+  <div class="total" id="total" role="status"><span class="t-star" aria-hidden="true">⭐</span><b class="t-num">0</b><span id="totalTxt">stele strânse</span><span class="plus" aria-hidden="true">+1</span></div>
 </header>
 
 <div id="navTop" aria-hidden="true"></div>
@@ -227,6 +240,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   <a href="#amestecat" data-for="amestecat" title="Amestecate" aria-label="Amestecate"><span class="ico" aria-hidden="true">🧙</span><span class="lbl">Amestecate</span><span class="star" aria-hidden="true">⭐</span></a>
   <a href="#propozitii" data-for="propozitii" title="Propoziții" aria-label="Propoziții"><span class="ico" aria-hidden="true">🐞</span><span class="lbl">Propoziții</span><span class="star" aria-hidden="true">⭐</span></a>
   <a href="#ghicitori" data-for="ghicitori" title="Ghicitori" aria-label="Ghicitori"><span class="ico" aria-hidden="true">🦉</span><span class="lbl">Ghicitori</span><span class="star" aria-hidden="true">⭐</span></a>
+<span class="nav-total" id="navTotal" title="Stele strânse" aria-hidden="true">⭐ <b class="t-num">0</b><span class="plus">+1</span></span>
 </nav>
 <div class="tools">
   <div class="levels" role="group" aria-label="Nivel">
@@ -466,10 +480,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
       '<div class="sheet-head"><span class="mascot">'+s.mascot+'</span><h2>'+s.title+'</h2></div>'+
       '<div class="print-only name-line">Nume: <i></i> Data: <i class="short"></i></div>'+
       '<p class="task">'+s.task+'</p>'+(s.dia?DIA_BAR:"")+'<div class="content"></div>'+
-      '<p class="feedback" aria-live="polite"></p>'+
-      '<div class="actions"><button type="button" class="new regen">🔄 Fișă nouă</button>'+
-      '<button type="button" class="ghost print1">🖨️ Tipărește</button>'+
-      '<button type="button" class="ghost clear">Șterge răspunsurile</button></div></section>';
+      '<p class="feedback" aria-live="polite"></p></section>';
   }).join("");
 
   /* elementele folosite des sunt căutate o singură dată */
@@ -540,7 +551,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
     extras(s.id);
     if(good===total){
       if(fb.className!=="feedback win"){ fb.className="feedback win"; fb.textContent=pick(WIN); }
-      if(!st.done){ st.done=true; state.stars++; save(); stars(); }
+      if(!st.done){ st.done=true; state.stars++; save(); stars(true); }
     }else if(!good && !wrong){
       fb.className="feedback"; fb.textContent="";
     }else{
@@ -592,12 +603,18 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   function onResize(){ extras("litera"); }
   if(SMALL.addEventListener) SMALL.addEventListener("change",onResize); else if(SMALL.addListener) SMALL.addListener(onResize);
 
-  function starText(n){ var r=n%100; return n===1 ? "1 stea strânsă" : n+(n>=20 && (r===0 || r>=20) ? " de" : "")+" stele strânse"; }
-  function stars(){
+  /* contorul de stele (în antet și în bara compactă); gain = tocmai s-a câștigat o stea */
+  var TOT=[document.getElementById("total"), document.getElementById("navTotal")];
+  function stars(gain){
     document.querySelectorAll("nav a").forEach(function(a){
       a.classList.toggle("done", !!state.sheets[a.dataset.for].done);
     });
-    document.getElementById("total").textContent="⭐ "+starText(state.stars);
+    var n=state.stars, r=n%100;
+    TOT.forEach(function(el){
+      el.querySelector(".t-num").textContent=n;
+      if(gain){ el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+    });
+    document.getElementById("totalTxt").textContent = n===1 ? "stea strânsă" : (n>=20 && (r===0 || r>=20) ? "de stele strânse" : "stele strânse");
   }
 
   function levelButtons(){
@@ -606,14 +623,6 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
     });
   }
 
-  function printSheets(sec){
-    if(sec){ document.body.classList.add("print-one"); sec.classList.add("to-print"); }
-    window.print();
-  }
-  window.addEventListener("afterprint",function(){
-    document.body.classList.remove("print-one");
-    document.querySelectorAll(".to-print").forEach(function(s){ s.classList.remove("to-print"); });
-  });
 
   function focusNextEmpty(P,i){
     for(var k=i+1;k<P.inputs.length;k++){ if(!P.inputs[k].value){ P.inputs[k].focus(); return; } }
@@ -656,11 +665,6 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
       else if(e.key==="Backspace" && isLetter && inp.value===""){ var p=P.inputs[i-1]; if(p && p.classList.contains("letter")){ e.preventDefault(); p.focus(); } }
     });
 
-    sec.querySelector(".regen").addEventListener("click",function(){ newData(s); save(); render(s,true); stars(); });
-    sec.querySelector(".print1").addEventListener("click",function(){ printSheets(sec); });
-    sec.querySelector(".clear").addEventListener("click",function(){
-      state.sheets[s.id].vals=[]; state.sheets[s.id].done=false; save(); render(s,false); stars();
-    });
 
     /* tastele pentru diacritice */
     var bar=sec.querySelector(".diacr");
@@ -707,7 +711,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
 
   function renewAll(){ SHEETS.forEach(function(s){ newData(s); render(s,true); }); save(); stars(); }
   document.getElementById("newAll").addEventListener("click",renewAll);
-  document.getElementById("printAll").addEventListener("click",function(){ printSheets(null); });
+  document.getElementById("printAll").addEventListener("click",function(){ window.print(); });
   document.querySelectorAll(".levels button").forEach(function(b){
     b.addEventListener("click",function(){ state.level=+b.dataset.level; levelButtons(); renewAll(); });
   });
