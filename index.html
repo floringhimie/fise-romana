@@ -77,6 +77,7 @@ input.ans{width:2.4em;height:1.9em;font-family:"Patrick Hand","Comic Sans MS",cu
   background:var(--box);border:3px dashed var(--box-line);border-radius:10px;padding:0;vertical-align:middle}
 input.ans.ok{border:3px solid var(--leaf);background:var(--leaf-bg)}
 input.ans.bad{border:3px solid var(--oops);background:var(--oops-bg);animation:wobble .35s}
+.quiet{animation:none!important}
 @keyframes wobble{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .fresh{animation:pop .35s ease-out}
@@ -203,7 +204,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
 <body>
 <header>
   <h1>✏️ Aventuri cu litere</h1>
-  <p class="intro">Completează căsuțele și apasă „Verifică”. Apasă „Fișă nouă” când vrei alte cuvinte.</p>
+  <p class="intro">Completează căsuțele: răspunsurile se verifică singure, pe loc. Apasă „Fișă nouă” când vrei alte cuvinte.</p>
   <div class="total" id="total">⭐ 0 stele strânse</div>
 </header>
 
@@ -372,12 +373,16 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   ];
 
   /* ---------- Stare (salvată în browser) ---------- */
-  var state=null;
+  var state=null, saveTimer=0;
   try{ state=JSON.parse(localStorage.getItem(KEY)||"null"); }catch(e){ state=null; }
   if(!state || !state.sheets || [1,2,3].indexOf(state.level)<0) state={level:1, stars:0, sheets:{}};
   SHEETS.forEach(function(s){ if(!state.sheets[s.id] || !state.sheets[s.id].data) newData(s); });
-  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
   function newData(s){ state.sheets[s.id]={data:s.gen(state.level), vals:[], done:false}; }
+  /* scrierea în browser e grupată: o dată la 400 ms, nu la fiecare tastă */
+  function saveNow(){ clearTimeout(saveTimer); saveTimer=0; try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
+  function save(){ if(!saveTimer) saveTimer=setTimeout(saveNow,400); }
+  window.addEventListener("pagehide",saveNow);
+  document.addEventListener("visibilitychange",function(){ if(document.hidden) saveNow(); });
 
   /* ---------- Afișare ---------- */
   function letterBox(a,g){
@@ -396,8 +401,9 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   }
 
   function body(id,d,vals){
+    var wide;
     if(id==="litera"){
-      var wide=d.items.some(function(it){ return it.w.length>6; });
+      wide=d.items.some(function(it){ return it.w.length>6; });
       return '<div class="space"><div class="words'+(wide?' wide':'')+'">'+d.items.map(function(it,g){
         return '<div class="witem"><span class="pic">'+it.e+'</span><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+it.w.split("").map(function(ch,i){
           return it.hide.indexOf(i)>=0 ? letterBox(ch,g) : tile(ch);
@@ -412,7 +418,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
       }).join("")+'</div>';
     }
     if(id==="amestecat"){
-      var wide=d.items.some(function(it){ return it.w.length>6; });
+      wide=d.items.some(function(it){ return it.w.length>6; });
       return '<div class="mix'+(wide?' wide':'')+'">'+d.items.map(function(it,g){
         return '<div class="aitem"><span class="pic gpic" data-e="'+it.e+'">'+(d.hidePic?"❓":it.e)+'</span><div><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+
           it.mix.map(function(ch){ return tile(ch,true); }).join("")+'</div>'+
@@ -448,13 +454,18 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
       '<div class="print-only name-line">Nume: <i></i> Data: <i class="short"></i></div>'+
       '<p class="task">'+s.task+'</p>'+(s.dia?DIA_BAR:"")+'<div class="content"></div>'+
       '<p class="feedback" aria-live="polite"></p>'+
-      '<div class="actions"><button type="button" class="check">Verifică</button>'+
-      '<button type="button" class="new regen">🔄 Fișă nouă</button>'+
+      '<div class="actions"><button type="button" class="new regen">🔄 Fișă nouă</button>'+
       '<button type="button" class="ghost print1">🖨️ Tipărește</button>'+
       '<button type="button" class="ghost clear">Șterge răspunsurile</button></div></section>';
   }).join("");
 
-  function inputsOf(sec){ return Array.prototype.slice.call(sec.querySelectorAll("input.ans")); }
+  /* elementele folosite des sunt căutate o singură dată */
+  var SEC={};
+  SHEETS.forEach(function(s){
+    var el=document.getElementById(s.id);
+    SEC[s.id]={el:el, content:el.querySelector(".content"), fb:el.querySelector(".feedback"), inputs:[], last:null, caret:null};
+  });
+  var SMALL=window.matchMedia("(max-width:560px)");
 
   function judge(inp){
     var v=inp.value, a=inp.dataset.a;
@@ -464,119 +475,116 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
     return plain(v)===plain(a) ? "dia" : "bad";
   }
 
-  function render(s, animate){
-    var sec=document.getElementById(s.id), st=state.sheets[s.id], content=sec.querySelector(".content");
-    content.innerHTML=body(s.id, st.data, st.vals);
-    if(animate){ content.classList.remove("fresh"); void content.offsetWidth; content.classList.add("fresh"); }
-    sec.querySelector(".feedback").textContent="";
-    sec._last=null;
-    var inputs=inputsOf(sec);
-    inputs.forEach(function(inp,i){
-      if(st.vals[i]) inp.value=st.vals[i];
-      var isLetter=inp.classList.contains("letter");
-      inp.addEventListener("input",function(){
-        var v, pos=inp.selectionStart;
-        if(inp.dataset.num) v=inp.value.replace(/[^0-9]/g,"").slice(-1);
-        else { v=up(lettersOnly(inp.value)); if(isLetter) v=v.slice(-1); }
-        if(inp.value!==v){ inp.value=v; if(!isLetter && pos!=null){ try{ inp.setSelectionRange(pos,pos); }catch(e){} } }
-        inp.classList.remove("ok","bad");
-        st.vals[i]=v; save();
-        if(v && isLetter){ var n=inputs[i+1]; if(n && n.classList.contains("letter")) n.focus(); }
-      });
-      inp.addEventListener("focus",function(){ sec._last=inp; if(isLetter || inp.dataset.num) inp.select(); });
-      inp.addEventListener("blur",function(){ sec._caret=inp.selectionStart; });
-      inp.addEventListener("keydown",function(e){
-        if(e.key==="Enter"){ e.preventDefault(); var n=inputs[i+1]; if(n) n.focus(); else check(s); }
-        else if(e.key==="Backspace" && isLetter && inp.value===""){ var p=inputs[i-1]; if(p && p.classList.contains("letter")){ e.preventDefault(); p.focus(); } }
-      });
-    });
-    if(st.done){
-      inputs.forEach(function(inp){ if(judge(inp)==="ok") inp.classList.add("ok"); });
-      sec.querySelectorAll(".line").forEach(function(l){ l.classList.add("ok"); });
-    }
-    extras(sec,inputs);
+  /* Un câmp e gata de verificat când are destule litere sau copilul a trecut mai departe (Enter / altă căsuță). */
+  function ready(inp){
+    if(!inp.value) return false;
+    if(inp.classList.contains("letter") || inp.dataset.num) return true;
+    return inp.value.length>=inp.dataset.a.length || inp.dataset.t==="1";
   }
 
-  /* units = câte un rezultat pentru fiecare cuvânt / propoziție */
-  function units(s,sec,mark){
-    var st=state.sheets[s.id];
+  /* pune culoarea; tremurăm doar la o greșeală nouă, nu la reafișare */
+  function mark(el,r,live){
+    if(r==="ok"){ el.classList.remove("bad","quiet"); el.classList.add("ok"); }
+    else if(r==="bad"){ if(!el.classList.contains("bad")){ el.classList.remove("ok"); el.classList.toggle("quiet",!live); el.classList.add("bad"); } }
+    else el.classList.remove("ok","bad","quiet");
+  }
+
+  /* câte un rezultat pentru fiecare cuvânt / propoziție; un cuvânt se verifică doar când toate căsuțele lui sunt completate */
+  function units(s,live){
+    var P=SEC[s.id], st=state.sheets[s.id];
     if(s.id==="propozitii"){
+      var sents=P.content.querySelectorAll(".sent");
       return st.data.items.map(function(it,i){
-        var placed=st.vals[i]||[], words=sentWords(it), line=sec.querySelectorAll(".sent")[i].querySelector(".line");
-        line.classList.remove("ok","bad");
-        if(placed.length<words.length) return {r:"empty"};
+        var placed=st.vals[i]||[], words=sentWords(it), line=sents[i].querySelector(".line");
+        if(placed.length<words.length){ mark(line,"empty",live); return {r:"empty"}; }
         var got=placed.map(function(wi){ return words[wi]; }).join(" ");
         var ok = got===it.s || it.alt.indexOf(got)>=0;
-        if(mark){ void line.offsetWidth; line.classList.add(ok?"ok":"bad"); }
+        mark(line, ok?"ok":"bad", live);
         return {r: ok?"ok":"bad"};
       });
     }
     var groups={}, order=[];
-    inputsOf(sec).forEach(function(inp){
+    P.inputs.forEach(function(inp){
       var g=inp.dataset.g; if(!groups[g]){ groups[g]=[]; order.push(g); }
-      var j=judge(inp);
-      if(mark){ inp.classList.remove("ok","bad"); if(j==="ok") inp.classList.add("ok"); else if(j!=="empty"){ void inp.offsetWidth; inp.classList.add("bad"); } }
-      groups[g].push(j);
+      groups[g].push(inp);
     });
     return order.map(function(g){
-      var js=groups[g];
+      var list=groups[g];
+      if(!list.every(ready)){ list.forEach(function(i){ mark(i,"empty",live); }); return {r:"empty"}; }
+      var js=list.map(judge);
+      list.forEach(function(inp,k){ mark(inp, js[k]==="ok"?"ok":"bad", live); });
       if(js.every(function(j){ return j==="ok"; })) return {r:"ok"};
-      if(js.some(function(j){ return j==="bad"||j==="dia"; })) return {r:"bad", dia:js.indexOf("dia")>=0};
-      return {r:"empty"};
+      return {r:"bad", dia:js.indexOf("dia")>=0};
     });
   }
 
   var WIN=["Bravo! Ai rezolvat tot! ⭐","Super! Citești și scrii ca un campion! 🏆","Excelent! Toate sunt corecte! 🎉"];
-  function check(s){
-    var sec=document.getElementById(s.id), st=state.sheets[s.id], fb=sec.querySelector(".feedback");
-    var u=units(s,sec,true), total=u.length;
-    var good=u.filter(function(x){ return x.r==="ok"; }).length,
-        wrong=u.filter(function(x){ return x.r==="bad"; }).length,
-        dia=u.some(function(x){ return x.dia; }),
-        empty=total-good-wrong;
-    extras(sec,inputsOf(sec));
+  /* verificarea automată: rulează după fiecare literă, cuvânt mutat sau la reafișare */
+  function evaluate(s,live){
+    var P=SEC[s.id], st=state.sheets[s.id], fb=P.fb, u=units(s,live), total=u.length,
+        good=0, wrong=0, dia=false;
+    u.forEach(function(x){ if(x.r==="ok") good++; else if(x.r==="bad") wrong++; if(x.dia) dia=true; });
+    extras(s.id);
     if(good===total){
-      fb.className="feedback win"; fb.textContent=pick(WIN);
-      if(!st.done){ st.done=true; state.stars++; }
-    }else if(empty===total){
-      fb.className="feedback try"; fb.textContent= s.id==="propozitii" ? "Atinge mai întâi cuvintele ca să formezi propozițiile." : "Scrie mai întâi câteva răspunsuri în căsuțe.";
+      if(fb.className!=="feedback win"){ fb.className="feedback win"; fb.textContent=pick(WIN); }
+      if(!st.done){ st.done=true; state.stars++; save(); stars(); }
+    }else if(!good && !wrong){
+      fb.className="feedback"; fb.textContent="";
     }else{
       fb.className="feedback try";
       fb.textContent="Ai "+good+" din "+total+" corecte."+(wrong?" Ce e portocaliu mai are nevoie de o încercare.":"")+
-        (dia?" Atenție la diacritice: ă, â, î, ș, ț!":"")+(empty?" Mai ai de completat.":"");
+        (dia?" Atenție la diacritice: ă, â, î, ș, ț!":"")+(good+wrong<total?" Continuă!":"");
     }
-    save(); stars();
   }
 
-  function extras(sec,inputs){
-    function allOk(list){ return list.length && list.every(function(i){ return i.classList.contains("ok"); }); }
-    if(sec.id==="litera"){
-      var items=sec.querySelectorAll(".witem"), ok=0;
-      items.forEach(function(w){ if(allOk(Array.prototype.slice.call(w.querySelectorAll("input.ans")))) ok++; });
-      var b=sec.querySelector(".bee"), p=ok/items.length;
-      if(window.matchMedia("(max-width:560px)").matches){ b.style.left="calc(12px + "+(p*70)+"%)"; b.style.bottom=""; }
+  function render(s, animate){
+    var P=SEC[s.id], st=state.sheets[s.id], content=P.content;
+    content.innerHTML=body(s.id, st.data, st.vals);
+    if(animate){ content.classList.remove("fresh"); void content.offsetWidth; content.classList.add("fresh"); }
+    P.fb.className="feedback"; P.fb.textContent="";
+    P.last=null; P.caret=null;
+    P.inputs=Array.prototype.slice.call(content.querySelectorAll("input.ans"));
+    P.inputs.forEach(function(inp,i){
+      inp.dataset.i=i;
+      if(st.vals[i]){ inp.value=st.vals[i]; inp.dataset.t="1"; }
+    });
+    evaluate(s,false);
+  }
+
+  function allOk(list){ return list.length>0 && list.every(function(i){ return i.classList.contains("ok"); }); }
+  function inputsIn(el){ return Array.prototype.slice.call(el.querySelectorAll("input.ans")); }
+  function extras(id){
+    var c=SEC[id].content;
+    if(id==="litera"){
+      var items=c.querySelectorAll(".witem"), ok=0;
+      items.forEach(function(w){ if(allOk(inputsIn(w))) ok++; });
+      var b=c.querySelector(".bee"), p=items.length ? ok/items.length : 0;
+      if(SMALL.matches){ b.style.left="calc(12px + "+(p*70)+"%)"; b.style.bottom=""; }
       else { b.style.left=""; b.style.bottom="calc(6px + "+(p*78)+"%)"; }
     }
-    if(sec.id==="silabe"){
-      sec.querySelectorAll(".sitem").forEach(function(it){
+    if(id==="silabe"){
+      c.querySelectorAll(".sitem").forEach(function(it){
         it.querySelector(".train").classList.toggle("show", it.querySelector("input.ans").classList.contains("ok"));
       });
     }
-    if(sec.id==="amestecat" || sec.id==="ghicitori"){
-      var hide = sec.id==="ghicitori" || state.sheets.amestecat.data.hidePic;
-      sec.querySelectorAll(".gpic").forEach(function(pic){
-        var found=allOk(Array.prototype.slice.call(pic.parentNode.querySelectorAll("input.ans")));
+    if(id==="amestecat" || id==="ghicitori"){
+      var hide = id==="ghicitori" || state.sheets.amestecat.data.hidePic;
+      c.querySelectorAll(".gpic").forEach(function(pic){
+        var found=allOk(inputsIn(pic.parentNode));
         pic.classList.toggle("found", found && hide);
         if(hide) pic.textContent = found ? pic.dataset.e : "❓";
       });
     }
   }
+  function onResize(){ extras("litera"); }
+  if(SMALL.addEventListener) SMALL.addEventListener("change",onResize); else if(SMALL.addListener) SMALL.addListener(onResize);
 
+  function starText(n){ var r=n%100; return n===1 ? "1 stea strânsă" : n+(n>=20 && (r===0 || r>=20) ? " de" : "")+" stele strânse"; }
   function stars(){
     document.querySelectorAll("nav a").forEach(function(a){
       a.classList.toggle("done", !!state.sheets[a.dataset.for].done);
     });
-    document.getElementById("total").textContent="⭐ "+state.stars+(state.stars===1?" stea strânsă":(state.stars>=20?" de stele strânse":" stele strânse"));
+    document.getElementById("total").textContent="⭐ "+starText(state.stars);
   }
 
   function levelButtons(){
@@ -594,10 +602,47 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
     document.querySelectorAll(".to-print").forEach(function(s){ s.classList.remove("to-print"); });
   });
 
-  /* ---------- Butoane ---------- */
+  function focusNextEmpty(P,i){
+    for(var k=i+1;k<P.inputs.length;k++){ if(!P.inputs[k].value){ P.inputs[k].focus(); return; } }
+  }
+
+  /* ---------- Evenimente (o singură dată pe fișă, nu la fiecare reafișare) ---------- */
   SHEETS.forEach(function(s){
-    var sec=document.getElementById(s.id);
-    sec.querySelector(".check").addEventListener("click",function(){ check(s); });
+    var P=SEC[s.id], sec=P.el, content=P.content;
+
+    content.addEventListener("input",function(e){
+      var inp=e.target; if(!inp.classList || !inp.classList.contains("ans")) return;
+      var st=state.sheets[s.id], i=+inp.dataset.i, isLetter=inp.classList.contains("letter"), v, pos=inp.selectionStart;
+      if(inp.dataset.num) v=inp.value.replace(/[^0-9]/g,"").slice(-1);
+      else { v=up(lettersOnly(inp.value)); if(isLetter) v=v.slice(-1); }
+      if(inp.value!==v){ inp.value=v; if(!isLetter && pos!=null){ try{ inp.setSelectionRange(pos,pos); }catch(err){} } }
+      inp.classList.remove("ok","bad","quiet");
+      delete inp.dataset.t;
+      st.vals[i]=v; save();
+      evaluate(s,true);
+      if(v && isLetter){ var n=P.inputs[i+1]; if(n && n.classList.contains("letter")) n.focus(); }
+      else if(v && inp.classList.contains("ok")) focusNextEmpty(P,i);
+    });
+    content.addEventListener("focusin",function(e){
+      var inp=e.target; if(!inp.classList || !inp.classList.contains("ans")) return;
+      P.last=inp; if(inp.classList.contains("letter") || inp.dataset.num) inp.select();
+    });
+    content.addEventListener("focusout",function(e){
+      var inp=e.target; if(!inp.classList || !inp.classList.contains("ans")) return;
+      P.caret=inp.selectionStart;
+      if(inp.value && inp.dataset.t!=="1"){ inp.dataset.t="1"; evaluate(s,true); }
+    });
+    content.addEventListener("keydown",function(e){
+      var inp=e.target; if(!inp.classList || !inp.classList.contains("ans")) return;
+      var i=+inp.dataset.i, isLetter=inp.classList.contains("letter");
+      if(e.key==="Enter"){
+        e.preventDefault();
+        if(inp.value){ inp.dataset.t="1"; evaluate(s,true); }
+        var n=P.inputs[i+1]; if(n) n.focus();
+      }
+      else if(e.key==="Backspace" && isLetter && inp.value===""){ var p=P.inputs[i-1]; if(p && p.classList.contains("letter")){ e.preventDefault(); p.focus(); } }
+    });
+
     sec.querySelector(".regen").addEventListener("click",function(){ newData(s); save(); render(s,true); stars(); });
     sec.querySelector(".print1").addEventListener("click",function(){ printSheets(sec); });
     sec.querySelector(".clear").addEventListener("click",function(){
@@ -611,13 +656,14 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
       bar.addEventListener("mousedown",function(e){ if(e.target.closest("button")) e.preventDefault(); });
       bar.addEventListener("click",function(e){
         var b=e.target.closest("button"); if(!b) return;
-        var ch=b.dataset.ch, inp=sec._last;
-        if(!inp || !sec.contains(inp)) inp=inputsOf(sec).filter(function(i){ return i.value===""; })[0] || inputsOf(sec)[0];
+        var ch=b.dataset.ch, inp=P.last;
+        if(!inp || !content.contains(inp)) inp=P.inputs.filter(function(i){ return i.value===""; })[0] || P.inputs[0];
         if(!inp) return;
+        var wasActive=document.activeElement===inp;
         inp.focus();
         if(inp.classList.contains("letter")) inp.value=ch;
         else {
-          var pos = document.activeElement===inp && inp.selectionStart!=null ? inp.selectionStart : (sec._caret!=null ? sec._caret : inp.value.length);
+          var pos = wasActive && inp.selectionStart!=null ? inp.selectionStart : (P.caret!=null ? P.caret : inp.value.length);
           pos=Math.min(pos,inp.value.length);
           inp.value=inp.value.slice(0,pos)+ch+inp.value.slice(pos);
           try{ inp.setSelectionRange(pos+1,pos+1); }catch(err){}
@@ -626,31 +672,31 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
       });
     }
 
-    /* propoziții: mută cuvintele între rând și grămadă */
+    /* propoziții: mută cuvintele între rând și grămadă; verificarea se face când toate cuvintele sunt puse */
     if(s.id==="propozitii"){
-      sec.querySelector(".content").addEventListener("click",function(e){
+      content.addEventListener("click",function(e){
         var chip=e.target.closest("button.chip"); if(!chip) return;
-        var box=chip.closest(".sent"), i=+box.dataset.i, st=state.sheets.propozitii, wi=+chip.dataset.w;
+        var box=chip.closest(".sent"), i=+box.dataset.i, st=state.sheets.propozitii, wi=+chip.dataset.w, wasIn=chip.classList.contains("in");
         var placed=(st.vals[i]||[]).slice();
-        if(chip.classList.contains("in")) placed.splice(placed.indexOf(wi),1); else placed.push(wi);
+        if(wasIn) placed.splice(placed.indexOf(wi),1); else placed.push(wi);
         st.vals[i]=placed; save();
         box.querySelector(".sent-live").innerHTML=sentLive(st.data.items[i],placed);
-        var same=box.querySelector('button.chip'+(chip.classList.contains("in")?':not(.in)':'.in')+'[data-w="'+wi+'"]');
-        var next=box.querySelector(".bank button.chip") || box.querySelector(".line button.chip:last-child");
-        if(e.detail===0 && (next||same)) (next||same).focus();
+        evaluate(s,true);
+        if(e.detail===0){
+          var next=box.querySelector(".bank button.chip") || box.querySelector(".line button.chip:last-child")
+                || box.querySelector('button.chip'+(wasIn?':not(.in)':'.in')+'[data-w="'+wi+'"]');
+          if(next) next.focus();
+        }
       });
     }
     render(s,false);
   });
-  document.getElementById("newAll").addEventListener("click",function(){
-    SHEETS.forEach(function(s){ newData(s); render(s,true); }); save(); stars();
-  });
+
+  function renewAll(){ SHEETS.forEach(function(s){ newData(s); render(s,true); }); save(); stars(); }
+  document.getElementById("newAll").addEventListener("click",renewAll);
   document.getElementById("printAll").addEventListener("click",function(){ printSheets(null); });
   document.querySelectorAll(".levels button").forEach(function(b){
-    b.addEventListener("click",function(){
-      state.level=+b.dataset.level; levelButtons();
-      SHEETS.forEach(function(s){ newData(s); render(s,true); }); save(); stars();
-    });
+    b.addEventListener("click",function(){ state.level=+b.dataset.level; levelButtons(); renewAll(); });
   });
   levelButtons(); stars();
 })();
