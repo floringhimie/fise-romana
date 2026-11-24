@@ -47,6 +47,18 @@ h1{font-size:clamp(28px,6vw,44px);font-weight:700;margin:0;letter-spacing:-.5px}
 nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--page);padding:10px 12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 nav a{display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--ink);background:var(--paper);border:2px solid var(--box-line);border-radius:999px;padding:6px 14px;font-weight:500;font-size:16px}
 nav a .star{opacity:.25;transition:opacity .3s}
+/* bara compactă la scroll: doar iconițe */
+#navTop{height:1px;margin-bottom:-1px}
+nav{transition:padding .2s,box-shadow .2s}
+nav a .ico{line-height:1;transition:font-size .2s}
+nav.compact{padding:6px 12px;gap:6px;box-shadow:0 2px 0 var(--box-line)}
+nav.compact a{position:relative;padding:6px 12px}
+nav.compact a .lbl{display:none}
+nav.compact a .ico{font-size:24px}
+nav.compact a .star{position:absolute;top:-6px;right:-6px;font-size:13px}
+nav.compact a:not(.done) .star{display:none}
+nav.compact a.done{background:var(--leaf-bg)}
+@media (prefers-reduced-motion:reduce){nav,nav a .ico{transition:none}}
 nav a.done{border-color:var(--leaf)}
 nav a.done .star{opacity:1}
 
@@ -208,12 +220,13 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   <div class="total" id="total">⭐ 0 stele strânse</div>
 </header>
 
+<div id="navTop" aria-hidden="true"></div>
 <nav aria-label="Fișe">
-  <a href="#litera" data-for="litera"><span>🐝</span>Litera fugită<span class="star">⭐</span></a>
-  <a href="#silabe" data-for="silabe"><span>🚂</span>Silabe<span class="star">⭐</span></a>
-  <a href="#amestecat" data-for="amestecat"><span>🧙</span>Amestecate<span class="star">⭐</span></a>
-  <a href="#propozitii" data-for="propozitii"><span>🐞</span>Propoziții<span class="star">⭐</span></a>
-  <a href="#ghicitori" data-for="ghicitori"><span>🦉</span>Ghicitori<span class="star">⭐</span></a>
+  <a href="#litera" data-for="litera" title="Litera fugită" aria-label="Litera fugită"><span class="ico" aria-hidden="true">🐝</span><span class="lbl">Litera fugită</span><span class="star" aria-hidden="true">⭐</span></a>
+  <a href="#silabe" data-for="silabe" title="Silabe" aria-label="Silabe"><span class="ico" aria-hidden="true">🚂</span><span class="lbl">Silabe</span><span class="star" aria-hidden="true">⭐</span></a>
+  <a href="#amestecat" data-for="amestecat" title="Amestecate" aria-label="Amestecate"><span class="ico" aria-hidden="true">🧙</span><span class="lbl">Amestecate</span><span class="star" aria-hidden="true">⭐</span></a>
+  <a href="#propozitii" data-for="propozitii" title="Propoziții" aria-label="Propoziții"><span class="ico" aria-hidden="true">🐞</span><span class="lbl">Propoziții</span><span class="star" aria-hidden="true">⭐</span></a>
+  <a href="#ghicitori" data-for="ghicitori" title="Ghicitori" aria-label="Ghicitori"><span class="ico" aria-hidden="true">🦉</span><span class="lbl">Ghicitori</span><span class="star" aria-hidden="true">⭐</span></a>
 </nav>
 <div class="tools">
   <div class="levels" role="group" aria-label="Nivel">
@@ -697,6 +710,20 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   document.getElementById("printAll").addEventListener("click",function(){ printSheets(null); });
   document.querySelectorAll(".levels button").forEach(function(b){
     b.addEventListener("click",function(){ state.level=+b.dataset.level; levelButtons(); renewAll(); });
+  });
+  /* ---------- Bara de sus: doar iconițe după scroll; salt fără #nume în adresă ---------- */
+  var nav=document.querySelector("nav"), navTop=document.getElementById("navTop");
+  if("IntersectionObserver" in window){
+    new IntersectionObserver(function(en){ nav.classList.toggle("compact", !en[0].isIntersecting); }).observe(navTop);
+  }else{
+    var onScroll=function(){ nav.classList.toggle("compact", navTop.getBoundingClientRect().top<0); };
+    window.addEventListener("scroll",onScroll,{passive:true}); onScroll();
+  }
+  var calm=window.matchMedia("(prefers-reduced-motion:reduce)");
+  nav.addEventListener("click",function(e){
+    var a=e.target.closest("a[data-for]"); if(!a) return;
+    e.preventDefault();
+    document.getElementById(a.dataset.for).scrollIntoView({behavior: calm.matches ? "auto" : "smooth", block:"start"});
   });
   levelButtons(); stars();
 })();
