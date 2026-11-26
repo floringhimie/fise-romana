@@ -83,6 +83,11 @@ main{max-width:820px;margin:0 auto;padding:0 12px 60px}
 .sheet h2{margin:0;font-size:clamp(24px,4.5vw,32px);font-weight:700}
 .task{margin:4px 0 18px;color:var(--soft);font-size:18px}
 .print-only{display:none}
+/* exerciții în plus, doar pe foaia tipărită */
+@media screen{.pextra{display:none!important}}
+.box{display:inline-block;width:2.4em;height:1.9em;font-size:30px;border:2px dashed #7d93bd;border-radius:10px;background:#fff;vertical-align:middle}
+.box.letter{width:44px;height:54px;font-size:32px}
+.box.long{display:block;margin-top:10px;max-width:100%}
 
 input.ans{width:2.4em;height:1.9em;font-family:"Patrick Hand","Comic Sans MS",cursive;font-size:30px;text-align:center;color:var(--ink);
   background:var(--box);border:3px dashed var(--box-line);border-radius:10px;padding:0;vertical-align:middle}
@@ -219,9 +224,18 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   .gpic.found{visibility:hidden}
   .words{gap:30px 24px}
   .syl{gap:34px 24px}
-  .mix{gap:36px 24px}
-  .sents{gap:30px}
-  .riddles{gap:34px}
+  .syl{grid-template-columns:1fr 1fr}
+  .mix{gap:26px 20px}
+  .mix:not(.wide){grid-template-columns:1fr 1fr}
+  .mix:not(.wide) .aitem{gap:8px}
+  .mix:not(.wide) .wordrow{gap:4px}
+  .mix:not(.wide) .aitem .lt{width:34px;height:42px;font-size:24px}
+  .mix input.ans.long,.mix .box.long{height:1.6em}
+  .sents{gap:24px}
+  .write-line{height:40px}
+  .print-bank{gap:6px}
+  .chip-p{font-size:18px;padding:3px 9px}
+  .riddles{gap:22px}
   .task{font-size:19px;margin-bottom:26px}
 }
 </style>
@@ -341,9 +355,9 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   ];
 
   /* ---------- Generatoare ---------- */
-  function genLitera(L){
+  function genLitera(L,n){
     var lim = L===1 ? [3,5] : L===2 ? [4,7] : [6,11];
-    return {items: take(byLen(lim[0],lim[1]),8).map(function(o){
+    return {items: take(byLen(lim[0],lim[1]),n||8).map(function(o){
       var w=up(o.w), n=w.length, all=[];
       for(var i=0;i<n;i++) all.push(i);
       var dia=all.filter(function(i){ return DIA.test(w[i]); }), plainPos=all.filter(function(i){ return !DIA.test(w[i]); });
@@ -354,23 +368,23 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
     })};
   }
 
-  function genSilabe(L){
+  function genSilabe(L,n){
     var lim = L===1 ? [1,2] : L===2 ? [1,3] : [2,5];
     var pool=WORDS.filter(function(o){ return o.syl.length>=lim[0] && o.syl.length<=lim[1]; });
-    return {items: take(pool,6).map(function(o){ return {e:o.e, syl:o.syl}; })};
+    return {items: take(pool,n||6).map(function(o){ return {e:o.e, syl:o.syl}; })};
   }
 
-  function genAmestecat(L){
+  function genAmestecat(L,n){
     var lim = L===1 ? [3,4] : L===2 ? [5,6] : [7,11];
-    return {hidePic:L===3, items: take(byLen(lim[0],lim[1]),6).map(function(o){
+    return {hidePic:L===3, items: take(byLen(lim[0],lim[1]),n||6).map(function(o){
       var w=up(o.w), mix, t=0;
       do{ mix=shuffle(w.split("")); t++; }while(mix.join("")===w && t<30);
       return {e:o.e, w:w, mix:mix};
     })};
   }
 
-  function genPropozitii(L){
-    return {items: take(SENT[L],4).map(function(s){
+  function genPropozitii(L,n){
+    return {items: take(SENT[L],n||4).map(function(s){
       var n=s[1].split(" ").length, idx=[], order, t=0;
       for(var i=0;i<n;i++) idx.push(i);
       do{ order=shuffle(idx); t++; }while(order.join()===idx.join() && t<30);
@@ -378,24 +392,24 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
     })};
   }
 
-  function genGhicitori(L){
+  function genGhicitori(L,n){
     var pool=RID.filter(function(r){ return L===1 ? r[1].length<=5 : L===2 ? r[1].length<=7 : r[1].length>=4; });
-    return {items: take(pool,4).map(function(r){
+    return {items: take(pool,n||4).map(function(r){
       var n=r[1].length, give = L===1 ? (n>=4 ? [0,n-1] : [0]) : L===2 ? [0] : [];
       return {e:r[0], w:r[1], q:r[2], give:give};
     })};
   }
 
   var SHEETS=[
-    {id:"litera", mascot:"🐝", title:"Litera fugită", dia:true, gen:genLitera,
+    {id:"litera", mascot:"🐝", title:"Litera fugită", dia:true, gen:genLitera, n:8, more:[1,1,1],
      task:"Unele litere au zburat din cuvinte! Scrie litera care lipsește. Cu fiecare cuvânt corect, albinuța zboară spre floare."},
-    {id:"silabe", mascot:"🚂", title:"Trenul silabelor", gen:genSilabe,
+    {id:"silabe", mascot:"🚂", title:"Trenul silabelor", gen:genSilabe, n:6, more:[4,4,4],
      task:"Spune cuvântul cu voce tare și bate din palme pentru fiecare silabă. Câte silabe are? Pentru fiecare răspuns bun, trenul își primește vagoanele."},
-    {id:"amestecat", mascot:"🧙", title:"Literele amestecate", dia:true, gen:genAmestecat,
+    {id:"amestecat", mascot:"🧙", title:"Literele amestecate", dia:true, gen:genAmestecat, n:6, more:[6,6,0],
      task:"Vrăjitorul a amestecat literele. Pune-le în ordine și scrie cuvântul."},
-    {id:"propozitii", mascot:"🐞", title:"Propoziții încurcate", gen:genPropozitii,
+    {id:"propozitii", mascot:"🐞", title:"Propoziții încurcate", gen:genPropozitii, n:4, more:[3,3,1],
      task:"Atinge cuvintele în ordinea bună ca să formezi propoziția. Ține minte: propoziția începe cu literă mare și se termină cu punct."},
-    {id:"ghicitori", mascot:"🦉", title:"Ghicitorile bufniței", dia:true, gen:genGhicitori,
+    {id:"ghicitori", mascot:"🦉", title:"Ghicitorile bufniței", dia:true, gen:genGhicitori, n:4, more:[2,2,2],
      task:"Citește ghicitoarea și scrie răspunsul, câte o literă în fiecare căsuță."}
   ];
 
@@ -404,7 +418,14 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   try{ state=JSON.parse(localStorage.getItem(KEY)||"null"); }catch(e){ state=null; }
   if(!state || !state.sheets || [1,2,3].indexOf(state.level)<0) state={level:1, stars:0, sheets:{}};
   SHEETS.forEach(function(s){ if(!state.sheets[s.id] || !state.sheets[s.id].data) newData(s); });
-  function newData(s){ state.sheets[s.id]={data:s.gen(state.level), vals:[], done:false}; }
+  function newData(s){ var d=s.gen(state.level, s.n+s.more[state.level-1]); d.more=d.items.splice(s.n); state.sheets[s.id]={data:d, vals:[], done:false}; }
+  /* fișele salvate înainte de această versiune primesc și ele exercițiile pentru tipar, fără să se piardă ce s-a lucrat */
+  function ukey(it){ return it.w || it.s || (it.syl && it.syl.join("")); }
+  SHEETS.forEach(function(s){
+    var d=state.sheets[s.id].data; if(d.more) return;
+    var have=d.items.map(ukey);
+    d.more=s.gen(state.level, s.n+s.more[state.level-1]).items.filter(function(it){ return have.indexOf(ukey(it))<0; }).slice(0,s.more[state.level-1]);
+  });
   /* scrierea în browser e grupată: o dată la 400 ms, nu la fiecare tastă */
   function saveNow(){ clearTimeout(saveTimer); saveTimer=0; try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
   function save(){ if(!saveTimer) saveTimer=setTimeout(saveNow,400); }
@@ -415,6 +436,7 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   function letterBox(a,g){
     return '<input class="ans letter" data-a="'+a+'" data-g="'+g+'" aria-label="literă lipsă" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false">';
   }
+  function hole(cls,style){ return '<span class="box'+(cls?' '+cls:'')+'"'+(style?' style="'+style+'"':'')+'></span>'; }
   function tile(ch,gold){ return '<span class="lt'+(gold?' gold':'')+'">'+ch+'</span>'; }
 
   function sentWords(it){ return it.s.split(" "); }
@@ -431,26 +453,33 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
     var wide;
     if(id==="litera"){
       wide=d.items.some(function(it){ return it.w.length>6; });
-      return '<div class="space"><div class="words'+(wide?' wide':'')+'">'+d.items.map(function(it,g){
-        return '<div class="witem"><span class="pic">'+it.e+'</span><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+it.w.split("").map(function(ch,i){
-          return it.hide.indexOf(i)>=0 ? letterBox(ch,g) : tile(ch);
+      var lit=function(it,g,x){
+        return '<div class="witem'+(x?' pextra':'')+'"><span class="pic">'+it.e+'</span><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+it.w.split("").map(function(ch,i){
+          return it.hide.indexOf(i)>=0 ? (x ? hole("letter") : letterBox(ch,g)) : tile(ch);
         }).join("")+'</div></div>';
-      }).join("")+'</div><div class="track" aria-hidden="true"><span class="goal">🌻</span><span class="bee">🐝</span></div></div>';
+      };
+      return '<div class="space"><div class="words'+(wide?' wide':'')+'">'+d.items.map(function(it,g){ return lit(it,g,false); }).join("")+
+        d.more.map(function(it){ return lit(it,0,true); }).join("")+'</div><div class="track" aria-hidden="true"><span class="goal">🌻</span><span class="bee">🐝</span></div></div>';
     }
     if(id==="silabe"){
       return '<div class="syl">'+d.items.map(function(it,g){
         return '<div class="sitem"><span class="pic">'+it.e+'</span><div><div class="sword">'+it.syl.join("")+'</div>'+
           '<div class="sq">Câte silabe? <input class="ans" data-a="'+it.syl.length+'" data-g="'+g+'" data-num="1" inputmode="numeric" aria-label="numărul de silabe" autocomplete="off"></div>'+
           '<div class="train" aria-hidden="true"><span class="loco">🚂</span>'+it.syl.map(function(s){ return '<span class="wag">'+s+'</span>'; }).join("")+'</div></div></div>';
+      }).join("")+d.more.map(function(it){
+        return '<div class="sitem pextra"><span class="pic">'+it.e+'</span><div><div class="sword">'+it.syl.join("")+'</div><div class="sq">Câte silabe? '+hole()+'</div></div></div>';
       }).join("")+'</div>';
     }
     if(id==="amestecat"){
       wide=d.items.some(function(it){ return it.w.length>6; });
-      return '<div class="mix'+(wide?' wide':'')+'">'+d.items.map(function(it,g){
-        return '<div class="aitem"><span class="pic gpic" data-e="'+it.e+'">'+(d.hidePic?"❓":it.e)+'</span><div><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+
+      var mix=function(it,g,x){
+        var wd='width:'+(it.w.length*0.7+1.4).toFixed(1)+'em';
+        return '<div class="aitem'+(x?' pextra':'')+'"><span class="pic gpic" data-e="'+it.e+'">'+(d.hidePic?"❓":it.e)+'</span><div><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+
           it.mix.map(function(ch){ return tile(ch,true); }).join("")+'</div>'+
-          '<input class="ans long" data-a="'+it.w+'" data-g="'+g+'" style="width:'+(it.w.length*0.7+1.4).toFixed(1)+'em" aria-label="cuvântul" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"></div></div>';
-      }).join("")+'</div>';
+          (x ? hole("long",wd) : '<input class="ans long" data-a="'+it.w+'" data-g="'+g+'" style="'+wd+'" aria-label="cuvântul" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false">')+'</div></div>';
+      };
+      return '<div class="mix'+(wide?' wide':'')+'">'+d.items.map(function(it,g){ return mix(it,g,false); }).join("")+
+        d.more.map(function(it){ return mix(it,0,true); }).join("")+'</div>';
     }
     if(id==="propozitii"){
       return '<div class="sents">'+d.items.map(function(it,i){
@@ -460,13 +489,21 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
           '<div class="print-only print-bank">'+it.order.map(function(wi){ return '<span class="chip-p">'+words[wi]+'</span>'; }).join("")+'</div>'+
           '<div class="print-only write-line"></div>'+(words.length>5?'<div class="print-only write-line"></div>':'')+
           '</div></div>';
+      }).join("")+d.more.map(function(it){
+        var words=sentWords(it);
+        return '<div class="sent pextra"><span class="pic">'+it.e+'</span><div class="sent-main">'+
+          '<div class="print-only print-bank">'+it.order.map(function(wi){ return '<span class="chip-p">'+words[wi]+'</span>'; }).join("")+'</div>'+
+          '<div class="print-only write-line"></div>'+(words.length>5?'<div class="print-only write-line"></div>':'')+
+          '</div></div>';
       }).join("")+'</div>';
     }
     if(id==="ghicitori"){
-      return '<div class="riddles">'+d.items.map(function(it,g){
-        return '<div class="gitem"><span class="pic gpic" data-e="'+it.e+'">❓</span><div><p>'+it.q+'</p><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+
-          it.w.split("").map(function(ch,i){ return it.give.indexOf(i)>=0 ? tile(ch,true) : letterBox(ch,g); }).join("")+'</div></div></div>';
-      }).join("")+'</div>';
+      var rid=function(it,g,x){
+        return '<div class="gitem'+(x?' pextra':'')+'"><span class="pic gpic" data-e="'+it.e+'">❓</span><div><p>'+it.q+'</p><div class="wordrow'+(it.w.length>8?' tight':'')+'">'+
+          it.w.split("").map(function(ch,i){ return it.give.indexOf(i)>=0 ? tile(ch,true) : (x ? hole("letter") : letterBox(ch,g)); }).join("")+'</div></div></div>';
+      };
+      return '<div class="riddles">'+d.items.map(function(it,g){ return rid(it,g,false); }).join("")+
+        d.more.map(function(it){ return rid(it,0,true); }).join("")+'</div>';
     }
     return "";
   }
@@ -580,14 +617,14 @@ footer{text-align:center;color:var(--soft);font-size:15px;padding:0 16px 40px}
   function extras(id){
     var c=SEC[id].content;
     if(id==="litera"){
-      var items=c.querySelectorAll(".witem"), ok=0;
+      var items=c.querySelectorAll(".witem:not(.pextra)"), ok=0;
       items.forEach(function(w){ if(allOk(inputsIn(w))) ok++; });
       var b=c.querySelector(".bee"), p=items.length ? ok/items.length : 0;
       if(SMALL.matches){ b.style.left="calc(12px + "+(p*70)+"%)"; b.style.bottom=""; }
       else { b.style.left=""; b.style.bottom="calc(6px + "+(p*78)+"%)"; }
     }
     if(id==="silabe"){
-      c.querySelectorAll(".sitem").forEach(function(it){
+      c.querySelectorAll(".sitem:not(.pextra)").forEach(function(it){
         it.querySelector(".train").classList.toggle("show", it.querySelector("input.ans").classList.contains("ok"));
       });
     }
